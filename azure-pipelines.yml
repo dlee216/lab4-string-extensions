@@ -1,0 +1,62 @@
+trigger:
+  branches:
+    include:
+      - main
+      - master
+
+pool:
+  name: Lab4Pool
+
+variables:
+  buildConfiguration: 'Release'
+  projectPath: 'StringExtensionsLib/StringExtensionsLib.csproj'
+  artifactFeed: 'Lab4-Q1/Lab4Feed1'
+
+steps:
+  - task: UseDotNet@2
+    displayName: 'Use .NET 8 SDK'
+    inputs:
+      packageType: 'sdk'
+      version: '8.0.x'
+
+  - task: DotNetCoreCLI@2
+    displayName: 'Restore'
+    inputs:
+      command: 'restore'
+      projects: '$(projectPath)'
+
+  - task: DotNetCoreCLI@2
+    displayName: 'Build'
+    inputs:
+      command: 'build'
+      projects: '$(projectPath)'
+      arguments: '--configuration $(buildConfiguration) --no-restore'
+
+  - task: DotNetCoreCLI@2
+    displayName: 'Pack NuGet package'
+    inputs:
+      command: 'pack'
+      packagesToPack: '$(projectPath)'
+      configuration: '$(buildConfiguration)'
+      packDirectory: '$(Build.ArtifactStagingDirectory)/packages'
+      nobuild: true
+      versioningScheme: 'off'
+
+  - task: NuGetAuthenticate@1
+    displayName: 'NuGet authenticate'
+
+  - task: NuGetCommand@2
+    displayName: 'Push NuGet package to Azure Artifacts'
+    inputs:
+      command: 'push'
+      packagesToPush: '$(Build.ArtifactStagingDirectory)/packages/*.nupkg'
+      nuGetFeedType: 'internal'
+      publishVstsFeed: '$(artifactFeed)'
+      allowPackageConflicts: true
+
+  - task: PublishBuildArtifacts@1
+    displayName: 'Publish .nupkg as build artifact'
+    inputs:
+      PathtoPublish: '$(Build.ArtifactStagingDirectory)/packages'
+      ArtifactName: 'nuget'
+      publishLocation: 'Container'
